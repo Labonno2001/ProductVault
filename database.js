@@ -1,9 +1,14 @@
 
 const Database = require("better-sqlite3");
 const path = require("path");
+const fs = require("fs");
 
-// Database file location
-const dbPath = path.join(__dirname, "data", "productvault.db");
+// Database directory and file location
+const dataDirectory = path.join(__dirname, "data");
+const dbPath = path.join(dataDirectory, "productvault.db");
+
+// Create the data directory if it does not exist
+fs.mkdirSync(dataDirectory, { recursive: true });
 
 // Connect to SQLite
 const db = new Database(dbPath);
