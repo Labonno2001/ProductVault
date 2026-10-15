@@ -3,20 +3,26 @@ const Database = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
 
-// Database directory and file location
-const dataDirectory = path.join(__dirname, "data");
+// Vercel's application directory is read-only.
+// Use temporary storage on Vercel and the local data folder on your PC.
+const isVercel = process.env.VERCEL === "1";
+
+const dataDirectory = isVercel
+  ? path.join("/tmp", "productvault-data")
+  : path.join(__dirname, "data");
+
 const dbPath = path.join(dataDirectory, "productvault.db");
 
-// Create the data directory if it does not exist
+// Create the database directory if it does not exist.
 fs.mkdirSync(dataDirectory, { recursive: true });
 
-// Connect to SQLite
+// Connect to SQLite.
 const db = new Database(dbPath);
 
-// Enable foreign key support
+// Enable foreign key support.
 db.pragma("foreign_keys = ON");
 
-// Create database tables
+// Create database tables.
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +42,10 @@ db.exec(`
   );
 `);
 
-console.log("SQLite database connected successfully.");
+console.log(
+  `SQLite database connected successfully. Environment: ${
+    isVercel ? "Vercel temporary storage" : "Local storage"
+  }`
+);
 
 module.exports = db;
