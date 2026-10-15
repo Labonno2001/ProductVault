@@ -11,6 +11,7 @@ const authenticateToken = require("./middleware/authMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const publicDirectory = path.join(__dirname, "public");
 
 // Log incoming requests and their final response status.
 app.use((req, res, next) => {
@@ -27,21 +28,45 @@ app.use((req, res, next) => {
   next();
 });
 
-// Read JSON request bodies.
 app.use(express.json());
 
-// Serve frontend files.
-app.use(express.static(path.join(__dirname, "public")));
+// Always serve the homepage directly without browser caching.
+app.get("/", (req, res, next) => {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
+  });
+
+  res.sendFile(path.join(publicDirectory, "index.html"), (error) => {
+    if (error) {
+      next(error);
+    }
+  });
+});
+
+// Prevent stale cached copies of frontend files.
+app.use((req, res, next) => {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
+  });
+
+  next();
+});
+
+// Serve CSS, JavaScript, and other public files.
+app.use(express.static(publicDirectory));
 
 // Authentication routes.
 app.use("/api/auth", authRoutes);
 
-// Product API: disable caching so product pages are fetched freshly.
+// Product API.
 app.use(
   "/api/products",
   (req, res, next) => {
     res.set("Cache-Control", "no-store");
-    res.set("Pragma", "no-cache");
     next();
   },
   productRoutes
@@ -50,7 +75,7 @@ app.use(
 // Product image upload route.
 app.use("/api/product-images", productImageRoutes);
 
-// Allow uploaded images to be viewed in the browser.
+// Serve uploaded images.
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"))
@@ -64,11 +89,6 @@ app.get("/api/protected", authenticateToken, (req, res) => {
     message: "Access granted. Your token is valid.",
     user: req.user
   });
-});
-
-// Open the home page.
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // Handle unexpected errors.
