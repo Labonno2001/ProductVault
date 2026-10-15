@@ -3,20 +3,20 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
+const crypto = require("crypto");
 
 const db = require("../database");
 const authenticateToken = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-const uploadDirectory = path.join(
-  __dirname,
-  "..",
-  "uploads",
-  "products"
-);
+const uploadDirectory =
+  process.env.VERCEL === "1"
+    ? path.join(os.tmpdir(), "productvault-uploads", "products")
+    : path.join(__dirname, "..", "uploads", "products");
 
-// Create the upload folder automatically if it does not exist.
+// Create the upload folder in writable storage.
 fs.mkdirSync(uploadDirectory, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -26,8 +26,7 @@ const storage = multer.diskStorage({
 
   filename: (req, file, callback) => {
     const extension = path.extname(file.originalname).toLowerCase();
-    const uniqueName =
-      `${Date.now()}-${require("crypto").randomUUID()}${extension}`;
+    const uniqueName = `${Date.now()}-${crypto.randomUUID()}${extension}`;
 
     callback(null, uniqueName);
   }
@@ -51,7 +50,6 @@ const upload = multer({
   }
 });
 
-// Upload an image for an existing product.
 router.post(
   "/:id",
   authenticateToken,
@@ -70,6 +68,8 @@ router.post(
     const productId = Number(req.params.id);
 
     if (!Number.isInteger(productId) || productId < 1) {
+      if (req.file) fs.unlinkSync(req.file.path);
+
       return res.status(400).json({
         message: "Invalid product ID."
       });
@@ -80,9 +80,7 @@ router.post(
       .get(productId);
 
     if (!product) {
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
-      }
+      if (req.file) fs.unlinkSync(req.file.path);
 
       return res.status(404).json({
         message: "Product not found."
